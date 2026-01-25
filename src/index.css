@@ -60,22 +60,22 @@
 
   .dark {
     --background: 220 25% 8%;
-    --foreground: 220 15% 95%;
+    --foreground: 0 0% 98%;
 
     --card: 220 25% 12%;
-    --card-foreground: 220 15% 95%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 220 25% 12%;
-    --popover-foreground: 220 15% 95%;
+    --popover: 220 25% 14%;
+    --popover-foreground: 0 0% 98%;
 
     --primary: 210 100% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 25% 18%;
-    --secondary-foreground: 220 15% 90%;
+    --secondary: 220 20% 22%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 220 25% 16%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 220 20% 18%;
+    --muted-foreground: 220 10% 65%;
 
     --accent: 185 85% 50%;
     --accent-foreground: 0 0% 100%;
@@ -83,17 +83,17 @@
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 25% 20%;
-    --input: 220 25% 20%;
+    --border: 220 20% 25%;
+    --input: 220 20% 18%;
     --ring: 210 100% 55%;
 
     --sidebar-background: 220 30% 6%;
-    --sidebar-foreground: 220 15% 85%;
+    --sidebar-foreground: 0 0% 90%;
     --sidebar-primary: 210 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 25% 12%;
-    --sidebar-accent-foreground: 220 15% 95%;
-    --sidebar-border: 220 25% 15%;
+    --sidebar-accent: 220 25% 14%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 220 25% 18%;
     --sidebar-ring: 210 100% 55%;
 
     /* Chart colors - slightly brighter for dark mode */

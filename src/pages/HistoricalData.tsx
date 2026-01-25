@@ -165,7 +165,7 @@ const HistoricalData: React.FC = () => {
               size="sm"
               onClick={() => setShowColumnFilter(!showColumnFilter)}
               className={cn(
-                "border-border hover:bg-muted",
+                "border-border bg-secondary text-foreground hover:bg-muted",
                 showColumnFilter && "bg-muted border-primary"
               )}
             >
@@ -177,7 +177,7 @@ const HistoricalData: React.FC = () => {
               size="sm"
               onClick={loadData}
               disabled={isLoading}
-              className="border-border hover:bg-muted"
+              className="border-border bg-secondary text-foreground hover:bg-muted"
             >
               <RefreshCw className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")} />
               Refresh
@@ -185,7 +185,7 @@ const HistoricalData: React.FC = () => {
             <Button
               size="sm"
               onClick={exportToExcel}
-              className="bg-primary hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Download className="w-4 h-4 mr-2" />
               Export Excel
@@ -260,7 +260,7 @@ const HistoricalData: React.FC = () => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-10 bg-card border-border pl-4 pr-10"
+              className="h-10 bg-muted border-border text-foreground placeholder:text-muted-foreground pl-4 pr-10"
             />
             {searchTerm && (
               <button
