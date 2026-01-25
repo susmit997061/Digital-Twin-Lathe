@@ -85,26 +85,26 @@ const LoginForm: React.FC<LoginFormProps> = ({
           {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Username</label>
+              <label className="text-sm font-medium text-foreground">Username</label>
               <Input
                 type="text"
                 placeholder="Enter username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="h-12 bg-background border-border focus:border-primary transition-colors"
+                className="h-12 bg-muted border-border text-foreground placeholder:text-muted-foreground focus:border-primary transition-colors"
                 required
               />
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Password</label>
+              <label className="text-sm font-medium text-foreground">Password</label>
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 bg-background border-border focus:border-primary transition-colors pr-12"
+                  className="h-12 bg-muted border-border text-foreground placeholder:text-muted-foreground focus:border-primary transition-colors pr-12"
                   required
                 />
                 <button

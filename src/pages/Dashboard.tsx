@@ -145,7 +145,7 @@ const Dashboard: React.FC = () => {
               size="sm"
               onClick={() => setIsLive(!isLive)}
               className={cn(
-                "border-border hover:bg-muted",
+                "border-border bg-secondary text-foreground hover:bg-muted",
                 isLive && "border-accent text-accent hover:bg-accent/10"
               )}
             >
@@ -159,7 +159,7 @@ const Dashboard: React.FC = () => {
               size="sm"
               onClick={loadData}
               disabled={isLoading}
-              className="border-border hover:bg-muted"
+              className="border-border bg-secondary text-foreground hover:bg-muted"
             >
               <RefreshCw className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")} />
               Refresh
