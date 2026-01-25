@@ -1,28 +1,27 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Settings, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface LoginFormProps {
   heading?: string;
   buttonText?: string;
+  onLogin: (username: string, password: string) => Promise<{ success: boolean; message: string }>;
+  onSuccess?: () => void;
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({
   heading = "Sign in to continue",
   buttonText = "Login",
+  onLogin,
+  onSuccess,
 }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  const { login } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,10 +29,10 @@ const LoginForm: React.FC<LoginFormProps> = ({
     setIsLoading(true);
 
     try {
-      const result = await login(username, password);
+      const result = await onLogin(username, password);
       
       if (result.success) {
-        navigate('/dashboard');
+        onSuccess?.();
       } else {
         setError(result.message);
       }
