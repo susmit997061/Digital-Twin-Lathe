@@ -4,8 +4,8 @@ import { LoginForm } from '@/components/ui/login-form';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Login: React.FC = () => {
-  const navigate = useNavigate();
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSuccess = () => {
     navigate('/dashboard');
