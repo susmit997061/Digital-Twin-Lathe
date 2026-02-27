@@ -1,152 +1,154 @@
-/**
- * API Service Layer
- * 
- * This file contains all API-related functions.
- * Replace the dummy implementations with actual API calls when your backend is ready.
- * 
- * Example with axios:
- * import axios from 'axios';
- * const API_BASE_URL = 'https://your-api.com/api';
- * 
- * export const fetchSensorData = async () => {
- *   const response = await axios.get(`${API_BASE_URL}/sensor-data`);
- *   return response.data;
- * };
- */
 
-export interface SensorDataPoint {
-  timestamp: string;
-  mean: number;
-  median: number;
-  rms: number;
-  stdDeviation: number;
-  variance: number;
-  skewness: number;
-  kurtosis: number;
-  crestFactor: number;
-  stdError: number;
-}
+  // API Service Layer - real HTTP calls to FastAPI backend
+  import axios from 'axios';
 
-export interface ChartDataPoint {
-  time: string;
-  value: number;
-}
+  const API_BASE_URL = 'http://13.232.112.62:8000';
 
-// Generate dummy data for development
-const generateRandomValue = (base: number, variance: number): number => {
-  return Number((base + (Math.random() - 0.5) * variance * 2).toFixed(4));
-};
-
-const generateTimestamp = (minutesAgo: number): string => {
-  const date = new Date(Date.now() - minutesAgo * 60 * 1000);
-  return date.toISOString();
-};
-
-const formatTimeForChart = (date: Date): string => {
-  return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false 
-  });
-};
-
-/**
- * Fetch historical sensor data
- * Replace with actual API call when backend is ready
- */
-export const fetchHistoricalData = async (): Promise<SensorDataPoint[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Generate 100 dummy data points
-  const data: SensorDataPoint[] = [];
-  for (let i = 99; i >= 0; i--) {
-    data.push({
-      timestamp: generateTimestamp(i * 5), // Every 5 minutes
-      mean: generateRandomValue(50, 10),
-      median: generateRandomValue(48, 8),
-      rms: generateRandomValue(55, 12),
-      stdDeviation: generateRandomValue(5, 2),
-      variance: generateRandomValue(25, 10),
-      skewness: generateRandomValue(0.1, 0.5),
-      kurtosis: generateRandomValue(3, 1),
-      crestFactor: generateRandomValue(1.5, 0.3),
-      stdError: generateRandomValue(0.5, 0.2),
-    });
+  export interface SensorDataPoint {
+    timestamp: string; // ISO string
+    mean: number;
+    median: number;
+    rms: number;
+    stdDeviation: number;
+    variance: number;
+    skewness: number;
+    kurtosis: number;
+    crestFactor: number;
+    stdError: number;
+    // optional fields from backend
+    rpm?: string;
+    feed?: string;
+    depth?: string;
+    prediction?: 'HEALTHY' | 'FAULTY';
+    healthy_prob?: number;
+    faulty_prob?: number;
   }
 
-  return data;
-};
+  export interface ChartDataPoint {
+    time: string;
+    value: number;
+  }
 
-/**
- * Fetch real-time chart data for a specific metric
- * Replace with actual API call when backend is ready
- */
-export const fetchChartData = async (metric: keyof Omit<SensorDataPoint, 'timestamp'>): Promise<ChartDataPoint[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-
-  const baseValues: Record<string, { base: number; variance: number }> = {
-    mean: { base: 50, variance: 10 },
-    median: { base: 48, variance: 8 },
-    rms: { base: 55, variance: 12 },
-    stdDeviation: { base: 5, variance: 2 },
-    variance: { base: 25, variance: 10 },
-    skewness: { base: 0.1, variance: 0.5 },
-    kurtosis: { base: 3, variance: 1 },
-    crestFactor: { base: 1.5, variance: 0.3 },
-    stdError: { base: 0.5, variance: 0.2 },
+  const formatTimeForChart = (date: Date): string => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
   };
 
-  const config = baseValues[metric] || { base: 50, variance: 10 };
-  const data: ChartDataPoint[] = [];
-  
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(Date.now() - i * 10000); // Every 10 seconds
-    data.push({
-      time: formatTimeForChart(date),
-      value: generateRandomValue(config.base, config.variance),
+  function toIsoTimestamp(ts: any): string {
+    if (!ts) return new Date().toISOString();
+    const n = Number(ts);
+    if (Number.isNaN(n)) return String(ts);
+    // if looks like milliseconds
+    if (n > 1e12) return new Date(n).toISOString();
+    // if looks like seconds
+    if (n > 1e9) return new Date(n).toISOString();
+    // otherwise assume seconds
+    return new Date(n * 1000).toISOString();
+  }
+
+  function safeNumber(v: any, fallback = 0): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  /**
+   * Fetch historical sensor data from backend `/history`.
+   * Backend returns rows from SQLite; map them into SensorDataPoint objects.
+   */
+  export const fetchHistoricalData = async (): Promise<SensorDataPoint[]> => {
+    const res = await axios.get(`${API_BASE_URL}/history`);
+    const rows: any[] = res.data || [];
+
+    // each row is the tuple inserted into the DB. Column order in server:
+    // id, timestamp, mean, median, std, var, rms, skew, kurtosis, crest, stderr, rpm, feed, depth, prediction, healthy_prob, faulty_prob, created_at
+    const mapped = rows.map((r) => {
+      const timestamp = toIsoTimestamp(r[1]);
+      return {
+        timestamp,
+        mean: safeNumber(r[2]),
+        median: safeNumber(r[3]),
+        rms: safeNumber(r[6]),
+        stdDeviation: safeNumber(r[4]),
+        variance: safeNumber(r[5]),
+        skewness: safeNumber(r[7]),
+        kurtosis: safeNumber(r[8]),
+        crestFactor: safeNumber(r[9]),
+        stdError: safeNumber(r[10]),
+        rpm: r[11] ?? undefined,
+        feed: r[12] ?? undefined,
+        depth: r[13] ?? undefined,
+        prediction: r[14] ?? undefined,
+        healthy_prob: r[15] ?? undefined,
+        faulty_prob: r[16] ?? undefined,
+      } as SensorDataPoint;
     });
-  }
 
-  return data;
-};
-
-/**
- * Fetch latest sensor readings
- * Replace with actual API call when backend is ready
- */
-export const fetchLatestReadings = async (): Promise<SensorDataPoint> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 200));
-
-  return {
-    timestamp: new Date().toISOString(),
-    mean: generateRandomValue(50, 10),
-    median: generateRandomValue(48, 8),
-    rms: generateRandomValue(55, 12),
-    stdDeviation: generateRandomValue(5, 2),
-    variance: generateRandomValue(25, 10),
-    skewness: generateRandomValue(0.1, 0.5),
-    kurtosis: generateRandomValue(3, 1),
-    crestFactor: generateRandomValue(1.5, 0.3),
-    stdError: generateRandomValue(0.5, 0.2),
+    return mapped;
   };
-};
 
-/**
- * Authentication - Dummy implementation
- * Replace with actual API call when backend is ready
- */
-export const authenticateUser = async (username: string, password: string): Promise<{ success: boolean; message: string }> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 800));
+  /**
+   * Fetch chart data for a metric by using historical data and returning
+   * the last 30 points formatted for charts.
+   */
+  export const fetchChartData = async (metric: keyof Omit<SensorDataPoint, 'timestamp'>): Promise<ChartDataPoint[]> => {
+    const history = await fetchHistoricalData();
+    if (!history || history.length === 0) return [];
 
-  // Dummy authentication
-  if (username === 'admin' && password === 'admin') {
-    return { success: true, message: 'Login successful' };
-  }
+    // ensure chronological order (history endpoint returns latest first)
+    const ordered = [...history].reverse();
+    const last = ordered.slice(-30);
 
-  return { success: false, message: 'Invalid credentials' };
-};
+    const points: ChartDataPoint[] = last.map((p) => ({
+      time: formatTimeForChart(new Date(p.timestamp)),
+      value: safeNumber((p as any)[metric]),
+    }));
+
+    return points;
+  };
+
+  /**
+   * Fetch latest sensor reading from backend `/latest` and map to SensorDataPoint
+   */
+  export const fetchLatestReadings = async (): Promise<SensorDataPoint> => {
+    const res = await axios.get(`${API_BASE_URL}/latest`);
+    const r = res.data;
+    if (!r) {
+      throw new Error('No latest data');
+    }
+
+    // map same as history single row
+    const timestamp = toIsoTimestamp(r[1]);
+    return {
+      timestamp,
+      mean: safeNumber(r[2]),
+      median: safeNumber(r[3]),
+      rms: safeNumber(r[6]),
+      stdDeviation: safeNumber(r[4]),
+      variance: safeNumber(r[5]),
+      skewness: safeNumber(r[7]),
+      kurtosis: safeNumber(r[8]),
+      crestFactor: safeNumber(r[9]),
+      stdError: safeNumber(r[10]),
+      rpm: r[11] ?? undefined,
+      feed: r[12] ?? undefined,
+      depth: r[13] ?? undefined,
+      prediction: r[14] ?? undefined,
+      healthy_prob: r[15] ?? undefined,
+      faulty_prob: r[16] ?? undefined,
+    } as SensorDataPoint;
+  };
+
+  /**
+   * Authentication - keep a minimal stub until you wire real auth endpoints.
+   */
+  export const authenticateUser = async (username: string, password: string): Promise<{ success: boolean; message: string }> => {
+    // TODO: hook into real auth endpoint
+    if (username === 'admin' && password === 'admin') {
+      return { success: true, message: 'Login successful' };
+    }
+    return { success: false, message: 'Invalid credentials' };
+  };

@@ -1,10 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, Activity, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { MetricChart, ChartDataPoint } from '@/components/dashboard/MetricChart';
-import { fetchChartData, fetchLatestReadings, SensorDataPoint } from '@/services/api';
+import { fetchChartData, SensorDataPoint } from '@/services/api';
+import {
+  startSocket,
+  stopSocket,
+  subscribeSocket,
+  subscribeStatus
+} from "@/services/socket";
 import { cn } from '@/lib/utils';
 
 interface MetricConfig {
@@ -31,6 +37,12 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLive, setIsLive] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [socketConnected, setSocketConnected] = useState<boolean>(false);
+
+const isLiveRef = useRef(isLive);
+  useEffect(() => {
+    isLiveRef.current = isLive;
+  }, [isLive]);
 
   const loadData = useCallback(async () => {
     try {
@@ -61,40 +73,82 @@ const Dashboard: React.FC = () => {
   }, [loadData]);
 
   // Live updates
-  useEffect(() => {
-    if (!isLive) return;
+ useEffect(() => {
+  let unsub: (() => void) | null = null;
 
-    const interval = setInterval(async () => {
-      try {
-        const latestReadings = await fetchLatestReadings();
-        const time = new Date().toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false,
-        });
+  const handleMessage = (msg: any) => {
+    console.log("WS Message:", msg);
 
-        setChartData((prev) => {
-          const updated: Record<string, ChartDataPoint[]> = {};
-          
-          metricConfigs.forEach((config) => {
-            const existing = prev[config.key] || [];
-            const newPoint = { time, value: latestReadings[config.key] };
-            // Keep last 30 points
-            updated[config.key] = [...existing.slice(-29), newPoint];
-          });
+    if (!isLiveRef.current) return;
+    if (msg.mean === undefined) return;
 
-          return updated;
-        });
+    if (isLoading) setIsLoading(false);
 
-        setLastUpdate(new Date());
-      } catch (error) {
-        console.error('Failed to fetch latest readings:', error);
-      }
-    }, 5000); // Update every 5 seconds
+    const mapped: Partial<SensorDataPoint> = {
+      mean: msg.mean,
+      median: msg.median,
+      rms: msg.rms,
+      stdDeviation: msg.std ?? msg.stdDeviation,
+      variance: msg.var ?? msg.variance,
+      skewness: msg.skew ?? msg.skewness,
+      kurtosis: msg.kurtosis,
+      crestFactor: msg.crest ?? msg.crestFactor,
+      stdError: msg.stderr ?? msg.stdError,
+    };
 
-    return () => clearInterval(interval);
-  }, [isLive]);
+    const toMillis = (t: number) => {
+      if (!t) return Date.now();
+      if (t > 1e12) return t;
+      return t * 1000;
+    };
+
+    const millis = toMillis(msg.timestamp || Date.now());
+
+    const time = new Date(millis).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+
+    setChartData((prev) => {
+      const updated: Record<string, ChartDataPoint[]> = {};
+
+      metricConfigs.forEach((config) => {
+        const existing = prev[config.key] || [];
+
+        const rawVal = (mapped as any)[config.key];
+        const val = Number(rawVal);
+
+        const newPoint = {
+          time,
+          value: Number.isFinite(val)
+            ? val
+            : (existing[existing.length - 1]?.value ?? 0)
+        };
+
+        updated[config.key] = [...existing.slice(-29), newPoint];
+      });
+
+      return updated;
+    });
+
+    setLastUpdate(new Date(millis));
+  };
+
+  startSocket();
+  unsub = subscribeSocket(handleMessage);
+
+  const unsubStatus = subscribeStatus((c) => {
+    setSocketConnected(!!c);
+  });
+
+  return () => {
+    if (unsub) unsub();
+    if (unsubStatus) unsubStatus();
+    stopSocket(); // cleanup
+  };
+}, []);
 
   return (
     <DashboardLayout>
@@ -137,6 +191,20 @@ const Dashboard: React.FC = () => {
                   <span>Paused</span>
                 </>
               )}
+            </div>
+
+            {/* WS Connection Status */}
+            <div className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+              socketConnected
+                ? "bg-green-100 text-green-700"
+                : "bg-red-100 text-red-700"
+            )}>
+              <span className="relative flex h-2 w-2">
+                <span className={cn("relative inline-flex rounded-full h-2 w-2", socketConnected ? "bg-green-600" : "bg-red-600")} />
+              </span>
+              <Wifi className="w-4 h-4" />
+              <span>{socketConnected ? 'WS Connected' : 'WS Disconnected'}</span>
             </div>
 
             {/* Toggle Live */}

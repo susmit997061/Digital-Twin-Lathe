@@ -27,7 +27,8 @@ interface MetricChartProps {
   index?: number;
 }
 
-export const MetricChart: React.FC<MetricChartProps> = ({
+// 1. WRAPPED IN React.memo TO PREVENT UNNECESSARY RE-RENDERS
+export const MetricChart: React.FC<MetricChartProps> = React.memo(({
   title,
   data,
   color,
@@ -151,6 +152,7 @@ export const MetricChart: React.FC<MetricChartProps> = ({
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4, fill: color }}
+                  isAnimationActive={false} // 2. CRITICAL: DISABLES ANIMATION FOR REAL-TIME
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -159,4 +161,6 @@ export const MetricChart: React.FC<MetricChartProps> = ({
       </Card>
     </motion.div>
   );
-};
+});
+
+MetricChart.displayName = 'MetricChart';
