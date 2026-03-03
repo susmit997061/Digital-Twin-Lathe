@@ -55,50 +55,43 @@
     return Number.isFinite(n) ? n : fallback;
   }
 
-  /**
-   * Fetch historical sensor data from backend `/history`.
-   * Backend returns rows from SQLite; map them into SensorDataPoint objects.
-   */
-  export const fetchHistoricalData = async (): Promise<SensorDataPoint[]> => {
-    const res = await axios.get(`${API_BASE_URL}/history`);
-    const rows: any[] = res.data || [];
 
-    // each row is the tuple inserted into the DB. Column order in server:
-    // id, timestamp, mean, median, std, var, rms, skew, kurtosis, crest, stderr, rpm, feed, depth, prediction, healthy_prob, faulty_prob, created_at
-    const mapped = rows.map((r) => {
-      const timestamp = toIsoTimestamp(r[1]);
-      return {
-        timestamp,
-        mean: safeNumber(r[2]),
-        median: safeNumber(r[3]),
-        rms: safeNumber(r[6]),
-        stdDeviation: safeNumber(r[4]),
-        variance: safeNumber(r[5]),
-        skewness: safeNumber(r[7]),
-        kurtosis: safeNumber(r[8]),
-        crestFactor: safeNumber(r[9]),
-        stdError: safeNumber(r[10]),
-        rpm: r[11] ?? undefined,
-        feed: r[12] ?? undefined,
-        depth: r[13] ?? undefined,
-        prediction: r[14] ?? undefined,
-        healthy_prob: r[15] ?? undefined,
-        faulty_prob: r[16] ?? undefined,
-      } as SensorDataPoint;
-    });
+export const fetchHistoricalData = async (): Promise<SensorDataPoint[]> => {
+  const res = await axios.get(`${API_BASE_URL}/history`);
+  const rows: any[] = res.data || [];
 
-    return mapped;
-  };
+ 
+  const mapped = rows.map((r) => {
 
-  /**
-   * Fetch chart data for a metric by using historical data and returning
-   * the last 30 points formatted for charts.
-   */
+    const timestamp = r[17] ? new Date(r[17] + 'Z').toISOString() : toIsoTimestamp(r[1]); 
+
+    return {
+      timestamp,
+      mean: safeNumber(r[2]),
+      median: safeNumber(r[3]),
+      stdDeviation: safeNumber(r[4]),
+      variance: safeNumber(r[5]),
+      rms: safeNumber(r[6]),
+      skewness: safeNumber(r[7]),
+      kurtosis: safeNumber(r[8]),
+      crestFactor: safeNumber(r[9]),
+      stdError: safeNumber(r[10]),
+      rpm: r[11] ?? undefined,
+      feed: r[12] ?? undefined,
+      depth: r[13] ?? undefined,
+      prediction: r[14] ?? undefined,
+      healthy_prob: r[15] ?? undefined,
+      faulty_prob: r[16] ?? undefined,
+    } as SensorDataPoint;
+  });
+
+  return mapped;
+};
+
   export const fetchChartData = async (metric: keyof Omit<SensorDataPoint, 'timestamp'>): Promise<ChartDataPoint[]> => {
     const history = await fetchHistoricalData();
     if (!history || history.length === 0) return [];
 
-    // ensure chronological order (history endpoint returns latest first)
     const ordered = [...history].reverse();
     const last = ordered.slice(-30);
 

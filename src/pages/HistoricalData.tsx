@@ -18,6 +18,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { fetchHistoricalData, SensorDataPoint } from '@/services/api';
+import { subscribeSocket } from '@/services/socket'
 import { cn } from '@/lib/utils';
 
 interface ColumnConfig {
@@ -62,7 +63,46 @@ const HistoricalData: React.FC = () => {
   };
 
   useEffect(() => {
+    // 1. Fetch initial historical data
     loadData();
+
+    // 2. Subscribe to real-time WebSocket updates
+    const unsubscribe = subscribeSocket((msg: any) => {
+      // Parse incoming WS data. Modify this mapping if your WS backend 
+      // sends an array (like the HTTP endpoint) instead of a JSON object.
+      const newPoint: SensorDataPoint = {
+        timestamp: msg.timestamp ? new Date(msg.timestamp).toISOString() : new Date().toISOString(),
+        mean: Number(msg.mean || 0),
+        median: Number(msg.median || 0),
+        rms: Number(msg.rms || 0),
+        stdDeviation: Number(msg.stdDeviation || msg.std || 0),
+        variance: Number(msg.variance || msg.var || 0),
+        skewness: Number(msg.skewness || msg.skew || 0),
+        kurtosis: Number(msg.kurtosis || 0),
+        crestFactor: Number(msg.crestFactor || msg.crest || 0),
+        stdError: Number(msg.stdError || msg.stderr || 0),
+        rpm: msg.rpm,
+        feed: msg.feed,
+        depth: msg.depth,
+        prediction: msg.prediction,
+        healthy_prob: msg.healthy_prob,
+        faulty_prob: msg.faulty_prob,
+      };
+
+      setData((prevData) => {
+        // Prevent adding a duplicate row if the timestamp already exists
+        if (prevData.some(p => p.timestamp === newPoint.timestamp)) {
+          return prevData;
+        }
+        // Prepend the new real-time point to the top of the table
+        return [newPoint, ...prevData];
+      });
+    });
+
+    // 3. Cleanup WebSocket subscription on unmount
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Filter data based on search
@@ -296,7 +336,6 @@ const HistoricalData: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {isLoading ? (
-                    // Loading skeleton
                     Array.from({ length: 10 }).map((_, i) => (
                       <tr key={i}>
                         {visibleColumns.map(col => (
