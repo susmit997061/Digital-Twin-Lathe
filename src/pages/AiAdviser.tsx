@@ -22,24 +22,36 @@ const AiAdviser: React.FC = () => {
   const [isPolling, setIsPolling] = useState(true);
 
   // Initial data load
+// Polling for live AI predictions
   useEffect(() => {
-    const loadData = async () => {
+    if (!isPolling) return;
+
+    const interval = setInterval(async () => {
       try {
-        setIsLoading(true);
-        const histData = await fetchHistoricalData();
-        if (histData && histData.length > 0) {
-          // Assuming history comes back descending (newest first) based on sample data
-          setLatestData(histData[0]);
-          setHistory(histData.slice(0, 10)); // Keep last 10 readings for the log
-        }
+        const latest = await fetchLatestReadings();
+        
+        // 1. Only update latestData if the timestamp is actually new
+        setLatestData((prevLatest) => {
+          if (prevLatest && prevLatest.timestamp === latest.timestamp) {
+            return prevLatest; // No change, prevents re-render
+          }
+          return latest;
+        });
+        
+        // 2. Only add to history if it's a new timestamp
+        setHistory((prev) => {
+          if (prev.length === 0 || prev[0].timestamp !== latest.timestamp) {
+            return [latest, ...prev].slice(0, 10);
+          }
+          return prev;
+        });
       } catch (error) {
-        console.error("Failed to load AI data:", error);
-      } finally {
-        setIsLoading(false);
+        console.error("Failed to fetch latest AI reading:", error);
       }
-    };
-    loadData();
-  }, []);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isPolling]);
 
   // Polling for live AI predictions
   useEffect(() => {
@@ -125,19 +137,21 @@ const AiAdviser: React.FC = () => {
               <CardContent>
                 {latestData ? (
                   <div className="flex flex-col md:flex-row items-center gap-8">
-                    {/* Status Indicator */}
+                   {/* Status Indicator */}
                     <div className="flex-shrink-0 flex flex-col items-center justify-center p-6 rounded-2xl bg-secondary/50 border border-border min-w-[200px]">
                       {isHealthy ? (
                         <motion.div
-                          animate={{ scale: [1, 1.05, 1] }}
-                          transition={{ repeat: Infinity, duration: 2 }}
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ duration: 0.3 }}
                         >
                           <CheckCircle className="w-20 h-20 text-green-500 mb-4" />
                         </motion.div>
                       ) : (
                         <motion.div
-                          animate={{ rotate: [0, -5, 5, 0] }}
-                          transition={{ repeat: Infinity, duration: 0.5 }}
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ duration: 0.3 }}
                         >
                           <AlertTriangle className="w-20 h-20 text-red-500 mb-4" />
                         </motion.div>
