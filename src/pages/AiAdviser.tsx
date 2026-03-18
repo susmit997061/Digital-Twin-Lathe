@@ -1,49 +1,98 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Bot, 
   Activity, 
   CheckCircle, 
   AlertTriangle, 
-  Clock, 
   Settings,
-  RefreshCw
+  RefreshCw,
+  Lightbulb
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { fetchHistoricalData, fetchLatestReadings, SensorDataPoint } from '@/services/api';
+import { fetchLatestReadings, SensorDataPoint } from '@/services/api';
 import { cn } from '@/lib/utils';
+
+// Helper function to map tool health percentage to the exact Excel recommendations
+const getRecommendationDetails = (healthPercentage: number) => {
+  if (healthPercentage >= 80) {
+    return {
+      heading: "Low Operational Risk",
+      vibrationProfile: "Stable: Low amplitude, consistent frequency.",
+      cause: "Normal steady-state wear; optimal cutting parameters.",
+      effect: "Excellent surface finish; dimensional accuracy within limits.",
+      recommendation: "Continue Operation: Monitor trend; no intervention needed.",
+      icon: <CheckCircle className="w-6 h-6 text-green-500" />,
+      themeClass: "bg-green-50/50 border-green-200 dark:bg-green-950/20 dark:border-green-900",
+      solutionClass: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+    };
+  } else if (healthPercentage >= 60) {
+    return {
+      heading: "Initial Flank Wear Risk",
+      vibrationProfile: "Slight Rise: Emerging peaks in the high-frequency range.",
+      cause: "Initial Flank Wear; slight chatter due to MS ductility.",
+      effect: "Minor increase in surface roughness (Ra); slight heat buildup.",
+      recommendation: "Inspection: Check tool tip; ensure coolant flow is consistent.",
+      icon: <AlertTriangle className="w-6 h-6 text-yellow-500" />,
+      themeClass: "bg-yellow-50/50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-900",
+      solutionClass: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300"
+    };
+  } else if (healthPercentage >= 40) {
+    return {
+      heading: "Medium Chipping Risk",
+      vibrationProfile: "Moderate: Erratic spikes; increased RMS values.",
+      cause: "Significant Crater Wear; work hardening of the MS piece.",
+      effect: "Audible noise; visible \"torn\" surface finish; dimensional drift.",
+      recommendation: "Action Required: Reduce Feed Rate (0.4→0.25); plan for tool change soon.",
+      icon: <AlertTriangle className="w-6 h-6 text-orange-500" />,
+      themeClass: "bg-orange-50/50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-900",
+      solutionClass: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"
+    };
+  } else if (healthPercentage >= 20) {
+    return {
+      heading: "High Failure Risk",
+      vibrationProfile: "High: Large amplitudes; chaotic \"knocking\" signals.",
+      cause: "Chipping of the cutting edge; excessive heat/friction.",
+      effect: "Poor chip formation (stringy/blue chips); risk of workpiece damage.",
+      recommendation: "Critical: Index or regrind tool immediately; check tool post rigidity.",
+      icon: <AlertTriangle className="w-6 h-6 text-red-500" />,
+      themeClass: "bg-red-50/50 border-red-200 dark:bg-red-950/20 dark:border-red-900",
+      solutionClass: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+    };
+  } else {
+    return {
+      heading: "Extreme Tool Rupture",
+      vibrationProfile: "Extreme: Sustained high-G impacts; saturation.",
+      cause: "Total Failure: Tip breakage or plastic deformation of the edge.",
+      effect: "Machine stall risk; scrap workpiece; potential damage to lathe spindle.",
+      recommendation: "Emergency Stop: Replace tool; perform \"Root Cause Analysis\" on parameters.",
+      icon: <AlertTriangle className="w-6 h-6 text-red-700" />,
+      themeClass: "bg-red-100/50 border-red-300 dark:bg-red-950/40 dark:border-red-800",
+      solutionClass: "bg-red-200 text-red-900 dark:bg-red-900/60 dark:text-red-200"
+    };
+  }
+};
 
 const AiAdviser: React.FC = () => {
   const [latestData, setLatestData] = useState<SensorDataPoint | null>(null);
-  const [history, setHistory] = useState<SensorDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPolling, setIsPolling] = useState(true);
 
-  // Initial data load
-// Polling for live AI predictions
+  // Consolidated Polling for live AI predictions
   useEffect(() => {
     if (!isPolling) return;
 
     const interval = setInterval(async () => {
       try {
         const latest = await fetchLatestReadings();
-        
-        // 1. Only update latestData if the timestamp is actually new
         setLatestData((prevLatest) => {
           if (prevLatest && prevLatest.timestamp === latest.timestamp) {
-            return prevLatest; // No change, prevents re-render
+            return prevLatest; // Prevent unnecessary re-renders
           }
+          setIsLoading(false);
           return latest;
-        });
-        
-        // 2. Only add to history if it's a new timestamp
-        setHistory((prev) => {
-          if (prev.length === 0 || prev[0].timestamp !== latest.timestamp) {
-            return [latest, ...prev].slice(0, 10);
-          }
-          return prev;
         });
       } catch (error) {
         console.error("Failed to fetch latest AI reading:", error);
@@ -53,37 +102,17 @@ const AiAdviser: React.FC = () => {
     return () => clearInterval(interval);
   }, [isPolling]);
 
-  // Polling for live AI predictions
-  useEffect(() => {
-    if (!isPolling) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const latest = await fetchLatestReadings();
-        setLatestData(latest);
-        
-        setHistory((prev) => {
-          // Only add to history log if it's a new timestamp
-          if (prev.length === 0 || prev[0].timestamp !== latest.timestamp) {
-            return [latest, ...prev].slice(0, 10);
-          }
-          return prev;
-        });
-      } catch (error) {
-        console.error("Failed to fetch latest AI reading:", error);
-      }
-    }, 2000); // Poll every 2 seconds
-
-    return () => clearInterval(interval);
-  }, [isPolling]);
-
   const isHealthy = latestData?.prediction === 'HEALTHY';
+  // Standardize the metric mapping to tool health (Healthy Probability represents the Tool Health %)
   const healthyProb = (latestData?.healthy_prob ?? 0) * 100;
-  const faultyProb = (latestData?.faulty_prob ?? 0) * 100;
+  
+  // Get dynamic recommendations based on current tool health
+  const recommendation = getRecommendationDetails(healthyProb);
 
   return (
     <DashboardLayout>
       <div className="p-4 md:p-6 lg:p-8 min-h-screen space-y-6">
+        
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <motion.div
@@ -120,10 +149,10 @@ const AiAdviser: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Main Status Dashboard */}
+        {/* Top Cards: Status & Parameters */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Current Status Card */}
+          {/* Enhanced System Status Card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -132,73 +161,32 @@ const AiAdviser: React.FC = () => {
           >
             <Card className="h-full border-border">
               <CardHeader>
-                <CardTitle className="text-lg">Current System Status</CardTitle>
+                <CardTitle className="text-lg">Overall Tool Health</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex justify-center items-center pb-6">
                 {latestData ? (
-                  <div className="flex flex-col md:flex-row items-center gap-8">
-                   {/* Status Indicator */}
-                    <div className="flex-shrink-0 flex flex-col items-center justify-center p-6 rounded-2xl bg-secondary/50 border border-border min-w-[200px]">
-                      {isHealthy ? (
-                        <motion.div
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          <CheckCircle className="w-20 h-20 text-green-500 mb-4" />
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          initial={{ scale: 0.8, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          <AlertTriangle className="w-20 h-20 text-red-500 mb-4" />
-                        </motion.div>
-                      )}
-                      <h2 className={cn(
-                        "text-2xl font-bold tracking-wider",
-                        isHealthy ? "text-green-500" : "text-red-500"
-                      )}>
-                        {latestData.prediction || "UNKNOWN"}
-                      </h2>
-                      <span className="text-xs text-muted-foreground mt-2">
-                        Updated: {new Date(latestData.timestamp).toLocaleTimeString()}
-                      </span>
+                  <div className="flex flex-col items-center justify-center p-8 rounded-2xl bg-secondary/30 border border-border min-w-[300px] shadow-sm">
+                    {isHealthy ? (
+                      <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }}>
+                        <CheckCircle className="w-24 h-24 text-green-500 mb-4 mx-auto" />
+                      </motion.div>
+                    ) : (
+                      <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }}>
+                        <AlertTriangle className="w-24 h-24 text-red-500 mb-4 mx-auto" />
+                      </motion.div>
+                    )}
+                    <h2 className={cn(
+                      "text-3xl font-bold tracking-wider mb-2",
+                      isHealthy ? "text-green-500" : "text-red-500"
+                    )}>
+                      {latestData.prediction || "UNKNOWN"}
+                    </h2>
+                    <div className="text-xl font-semibold text-foreground bg-background/50 px-4 py-1 rounded-full border border-border/50">
+                      Confidence: {healthyProb.toFixed(1)}%
                     </div>
-
-                    {/* Probability Bars */}
-                    <div className="flex-grow w-full space-y-6">
-                      <div>
-                        <div className="flex justify-between mb-2">
-                          <span className="text-sm font-medium">Healthy Probability</span>
-                          <span className="text-sm font-bold text-green-500">{healthyProb.toFixed(1)}%</span>
-                        </div>
-                        <div className="h-3 w-full bg-secondary rounded-full overflow-hidden">
-                          <motion.div 
-                            className="h-full bg-green-500"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${healthyProb}%` }}
-                            transition={{ duration: 0.5 }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between mb-2">
-                          <span className="text-sm font-medium">Faulty Probability</span>
-                          <span className="text-sm font-bold text-red-500">{faultyProb.toFixed(1)}%</span>
-                        </div>
-                        <div className="h-3 w-full bg-secondary rounded-full overflow-hidden">
-                          <motion.div 
-                            className="h-full bg-red-500"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${faultyProb}%` }}
-                            transition={{ duration: 0.5 }}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <span className="text-xs text-muted-foreground mt-4">
+                      Updated: {new Date(latestData.timestamp).toLocaleTimeString()}
+                    </span>
                   </div>
                 ) : (
                   <div className="h-48 flex items-center justify-center text-muted-foreground">
@@ -241,72 +229,54 @@ const AiAdviser: React.FC = () => {
 
         </div>
 
-        {/* Prediction History Log */}
+        {/* Dynamic Recommendations Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <Card className="border-border">
-            <CardHeader>
+          <Card className="border-border shadow-sm">
+            <CardHeader className="bg-secondary/20 border-b border-border">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
-                Recent Predictions Log
+                <Lightbulb className="w-5 h-5 text-blue-500" />
+                Recommendations for Tool
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-muted-foreground uppercase bg-secondary/30 rounded-t-lg">
-                    <tr>
-                      <th className="px-4 py-3 rounded-tl-lg">Timestamp</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Healthy Confidence</th>
-                      <th className="px-4 py-3 rounded-tr-lg">Parameters (RPM/Feed/Depth)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <AnimatePresence>
-                      {history.map((record, idx) => (
-                        <motion.tr 
-                          key={record.timestamp}
-                          initial={{ opacity: 0, backgroundColor: 'rgba(var(--primary), 0.1)' }}
-                          animate={{ opacity: 1, backgroundColor: 'transparent' }}
-                          exit={{ opacity: 0 }}
-                          className="border-b border-border hover:bg-secondary/20 transition-colors"
-                        >
-                          <td className="px-4 py-3 font-medium text-foreground">
-                            {new Date(record.timestamp).toLocaleTimeString()}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={cn(
-                              "px-2.5 py-1 rounded-full text-xs font-bold",
-                              record.prediction === 'HEALTHY' 
-                                ? "bg-green-500/10 text-green-500" 
-                                : "bg-red-500/10 text-red-500"
-                            )}>
-                              {record.prediction || 'UNKNOWN'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            {((record.healthy_prob ?? 0) * 100).toFixed(1)}%
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {record.rpm ?? '-'} / {record.feed ?? '-'} / {record.depth ?? '-'}
-                          </td>
-                        </motion.tr>
-                      ))}
-                    </AnimatePresence>
-                    {history.length === 0 && !isLoading && (
-                      <tr>
-                        <td colSpan={4} className="text-center py-8 text-muted-foreground">
-                          No history data available.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+            <CardContent className="p-6">
+              {latestData ? (
+                <div className={cn("border-l-4 rounded-r-xl p-6 transition-colors duration-300", recommendation.themeClass)}>
+                  <div className="flex items-center gap-3 mb-4">
+                    {recommendation.icon}
+                    <h3 className="text-xl font-bold text-foreground">
+                      {recommendation.heading}
+                    </h3>
+                  </div>
+                  
+                  <div className="space-y-4 text-sm md:text-base ml-9">
+                    <p className="text-foreground">
+                      <span className="font-semibold text-muted-foreground mr-2">Vibration Profile:</span> 
+                      {recommendation.vibrationProfile}
+                    </p>
+                    <p className="text-foreground">
+                      <span className="font-semibold text-muted-foreground mr-2">Reason:</span> 
+                      {recommendation.cause}
+                    </p>
+                    <p className="text-foreground">
+                      <span className="font-semibold text-muted-foreground mr-2">Impact:</span> 
+                      {recommendation.effect}
+                    </p>
+                    
+                    <div className={cn("mt-6 p-4 rounded-lg border", recommendation.solutionClass)}>
+                      <span className="font-bold mr-2">Solution:</span> 
+                      {recommendation.recommendation}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-32 flex items-center justify-center text-muted-foreground">
+                  Awaiting tool health data to generate recommendations...
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
