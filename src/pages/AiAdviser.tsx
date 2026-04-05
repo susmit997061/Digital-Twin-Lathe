@@ -185,7 +185,7 @@ const AiAdviser: React.FC = () => {
                       Confidence: {healthyProb.toFixed(1)}%
                     </div>
                     <span className="text-xs text-muted-foreground mt-4">
-                      Updated: {new Date(latestData.timestamp).toLocaleTimeString()}
+                      Updated: {new Date(latestData.timestamp).toLocaleString()}
                     </span>
                   </div>
                 ) : (
