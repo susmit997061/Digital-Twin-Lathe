@@ -70,8 +70,25 @@ const HistoricalData: React.FC = () => {
     const unsubscribe = subscribeSocket((msg: any) => {
       // Parse incoming WS data. Modify this mapping if your WS backend 
       // sends an array (like the HTTP endpoint) instead of a JSON object.
+      const parseWsTimestamp = (ts: any, stringTs?: any) => {
+        if (stringTs) {
+          let tStr = String(stringTs);
+          if (!tStr.endsWith('Z')) tStr += 'Z';
+          const d = new Date(tStr);
+          if (!Number.isNaN(d.valueOf())) return d.toISOString();
+        }
+        if (!ts) return new Date().toISOString();
+        const n = Number(ts);
+        if (Number.isNaN(n)) {
+          const d = new Date(ts);
+          return Number.isNaN(d.valueOf()) ? new Date().toISOString() : d.toISOString();
+        }
+        if (n > 1e12) return new Date(n).toISOString();
+        return new Date(n * 1000).toISOString();
+      };
+
       const newPoint: SensorDataPoint = {
-        timestamp: msg.timestamp ? new Date(msg.timestamp).toISOString() : new Date().toISOString(),
+        timestamp: parseWsTimestamp(msg.timestamp, msg.datetime || msg.time_string || msg.r17),
         mean: Number(msg.mean || 0),
         median: Number(msg.median || 0),
         rms: Number(msg.rms || 0),

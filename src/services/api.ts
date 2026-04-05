@@ -41,11 +41,12 @@
   function toIsoTimestamp(ts: any): string {
     if (!ts) return new Date().toISOString();
     const n = Number(ts);
-    if (Number.isNaN(n)) return String(ts);
+    if (Number.isNaN(n)) {
+      const d = new Date(ts);
+      return Number.isNaN(d.valueOf()) ? new Date().toISOString() : d.toISOString();
+    }
     // if looks like milliseconds
     if (n > 1e12) return new Date(n).toISOString();
-    // if looks like seconds
-    if (n > 1e9) return new Date(n).toISOString();
     // otherwise assume seconds
     return new Date(n * 1000).toISOString();
   }
@@ -62,8 +63,15 @@ export const fetchHistoricalData = async (): Promise<SensorDataPoint[]> => {
 
  
   const mapped = rows.map((r) => {
-
-    const timestamp = r[17] ? new Date(r[17] + 'Z').toISOString() : toIsoTimestamp(r[1]); 
+    let timestamp = toIsoTimestamp(r[1]);
+    if (r[17]) {
+      let tStr = String(r[17]);
+      if (!tStr.endsWith('Z')) tStr += 'Z';
+      const d = new Date(tStr);
+      if (!Number.isNaN(d.valueOf())) {
+        timestamp = d.toISOString();
+      }
+    }
 
     return {
       timestamp,
@@ -114,7 +122,15 @@ export const fetchHistoricalData = async (): Promise<SensorDataPoint[]> => {
     }
 
     // map same as history single row
-    const timestamp = toIsoTimestamp(r[1]);
+    let timestamp = toIsoTimestamp(r[1]);
+    if (r[17]) {
+      let tStr = String(r[17]);
+      if (!tStr.endsWith('Z')) tStr += 'Z';
+      const d = new Date(tStr);
+      if (!Number.isNaN(d.valueOf())) {
+        timestamp = d.toISOString();
+      }
+    }
     return {
       timestamp,
       mean: safeNumber(r[2]),
