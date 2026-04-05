@@ -28,7 +28,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         )}
         style={{ marginLeft: 0 }}
       >
-        <div className="hidden md:block" style={{ marginLeft: sidebarCollapsed ? 72 : 256 }}>
+        <div className="hidden md:block">
           {children}
         </div>
         <div className="md:hidden">
